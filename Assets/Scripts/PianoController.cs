@@ -1,47 +1,73 @@
+using System;
 using System.IO.Ports;
 using UnityEngine;
-using System;
+using System.Collections; // Necesario para las corutinas
 
-public class PianoController : MonoBehaviour
+public class ArduinoController : MonoBehaviour
 {
-    public AudioClip[] noteClips; // Array de AudioClips para las notas (DO a DO)
-    private AudioSource audioSource;
+    public AudioClip[] notas; // Array de clips de audio (do, re, mi, etc.)
+    public AudioSource audioSource;
+
     private SerialPort arduinoPort;
+    private bool canPressButton = true; // Indica si el botón puede ser presionado
+    private float waitTime = 0.5f; // Tiempo de espera en segundos
 
     void Start()
     {
-        audioSource = GetComponent<AudioSource>();
-        arduinoPort = new SerialPort("COM3", 9600); // Cambiar "COM3" al puerto adecuado
+        // Configura el puerto COM que usa tu Arduino
+        arduinoPort = new SerialPort("COM4", 9600); // Asegúrate de usar el puerto correcto
         arduinoPort.Open();
+        arduinoPort.ReadTimeout = 100; // Tiempo de espera en milisegundos
     }
 
     void Update()
     {
-        if (arduinoPort.IsOpen)
+        if (arduinoPort.IsOpen && canPressButton)
         {
             try
             {
-                string noteIndexString = arduinoPort.ReadLine();
-                int noteIndex;
-                if (int.TryParse(noteIndexString, out noteIndex))
+                string data = arduinoPort.ReadLine(); // Lee el mensaje del Arduino
+                int buttonIndex;
+
+                if (int.TryParse(data, out buttonIndex))
                 {
-                    PlayNoteSound(noteIndex);
+                    Debug.Log($"Botón presionado: {buttonIndex}"); // Muestra el índice en la consola
+                    if (buttonIndex >= 0 && buttonIndex < notas.Length)
+                    {
+                        PlayNote(buttonIndex);
+                        StartCoroutine(WaitForNextButtonPress()); // Inicia la corutina para esperar antes de permitir otro botón
+                    }
                 }
             }
-            catch (System.Exception) { }
+            catch (TimeoutException)
+            {
+                // No hacer nada si no hay datos
+            }
         }
     }
 
-    void PlayNoteSound(int index)
+    private void PlayNote(int index)
     {
-        if (index >= 0 && index < noteClips.Length)
+        if (audioSource.isPlaying)
         {
-            audioSource.PlayOneShot(noteClips[index]);
+            audioSource.Stop(); // Detiene la reproducción actual
         }
+
+        audioSource.clip = notas[index];
+        audioSource.Play();
     }
 
-    void OnApplicationQuit()
+    // Corutina que implementa el tiempo de espera antes de permitir otra pulsación de botón
+    private IEnumerator WaitForNextButtonPress()
     {
+        canPressButton = false; // Evita que se presione otro botón inmediatamente
+        yield return new WaitForSeconds(waitTime); // Espera 0.5 segundos
+        canPressButton = true; // Permite presionar otro botón
+    }
+
+    private void OnApplicationQuit()
+    {
+        // Cierra el puerto serie al salir del juego
         if (arduinoPort != null && arduinoPort.IsOpen)
         {
             arduinoPort.Close();
