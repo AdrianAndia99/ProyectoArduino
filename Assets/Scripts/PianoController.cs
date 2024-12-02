@@ -35,7 +35,6 @@ public class ArduinoController : MonoBehaviour
                     if (buttonIndex >= 0 && buttonIndex < notas.Length)
                     {
                         PlayNote(buttonIndex);
-                        StartCoroutine(WaitForNextButtonPress()); // Inicia la corutina para esperar antes de permitir otro botón
                     }
                 }
             }
@@ -56,15 +55,6 @@ public class ArduinoController : MonoBehaviour
         audioSource.clip = notas[index];
         audioSource.Play();
     }
-
-    // Corutina que implementa el tiempo de espera antes de permitir otra pulsación de botón
-    private IEnumerator WaitForNextButtonPress()
-    {
-        canPressButton = false; // Evita que se presione otro botón inmediatamente
-        yield return new WaitForSeconds(waitTime); // Espera 0.5 segundos
-        canPressButton = true; // Permite presionar otro botón
-    }
-
     private void OnApplicationQuit()
     {
         // Cierra el puerto serie al salir del juego
